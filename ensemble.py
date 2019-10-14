@@ -20,7 +20,7 @@ import settings
 def create_models(args):
     models = []
     for encoder_type, ckp in zip(args.encoder_types.split(','), args.ckps.split(',')):
-        model = create_runner(encoder_type, ckp).cuda()
+        model = create_model(encoder_type, ckp).cuda()
         if torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
         model.eval()
@@ -28,7 +28,7 @@ def create_models(args):
     return models
 
 def predict_loader(models, loader):
-    probs, masks = []
+    probs, masks = [], []
     with torch.no_grad():
         for batch in tqdm(loader):
             img, mask = batch[0].cuda(), batch[1]
@@ -41,6 +41,8 @@ def predict_loader(models, loader):
             probs.append(avg_ouput)
     probs = torch.cat(probs, 0).numpy()
     masks = torch.cat(masks, 0).numpy()
+    print('probs:', probs.shape)
+    print('masks:', masks.shape)
     return probs, masks
 
 def ensemble(args):
