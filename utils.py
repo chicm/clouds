@@ -199,7 +199,7 @@ def post_process(probability, threshold, min_size):
             num += 1
     return predictions, num
 
-
+'''
 def get_training_augmentation():
     train_transform = [
 
@@ -208,6 +208,18 @@ def get_training_augmentation():
         albu.GridDistortion(p=0.5),
         albu.OpticalDistortion(p=0.5, distort_limit=2, shift_limit=0.5),
         albu.Resize(320, 640)
+    ]
+    return albu.Compose(train_transform)
+'''
+def get_training_augmentation():
+    train_transform = [
+        albu.Resize(320, 640),
+        albu.HorizontalFlip(p=0.25),
+        albu.VerticalFlip(p=0.25),
+        albu.ShiftScaleRotate(scale_limit=0.5, rotate_limit=15, shift_limit=0.1, p=0.5, border_mode=cv2.BORDER_REFLECT)
+#         albu.GridDistortion(p=0.5),
+#         albu.OpticalDistortion(p=0.5, distort_limit=2, shift_limit=0.5),
+
     ]
     return albu.Compose(train_transform)
 

@@ -37,7 +37,6 @@ from catalyst.dl.callbacks import DiceCallback, EarlyStoppingCallback, InferCall
 
 import segmentation_models_pytorch as smp
 from utils import get_training_augmentation, get_validation_augmentation, get_preprocessing, make_mask
-from models import preprocessing_fn
 import settings
 
 class CloudDataset(Dataset):
@@ -78,13 +77,16 @@ def prepare_df():
 
     id_mask_count = train.loc[train['EncodedPixels'].isnull() == False, 'Image_Label'].apply(lambda x: x.split('_')[0]).value_counts().\
         reset_index().rename(columns={'index': 'img_id', 'Image_Label': 'count'})
-    train_ids, valid_ids = train_test_split(id_mask_count['img_id'].values, random_state=42, stratify=id_mask_count['count'], test_size=0.1)
+    #train_ids, valid_ids = train_test_split(id_mask_count['img_id'].values, random_state=42, stratify=id_mask_count['count'], test_size=0.1)
     #test_ids = sub['Image_Label'].apply(lambda x: x.split('_')[0]).drop_duplicates().values
     #sub = pd.read_csv(f'{path}/sample_submission.csv')
+    train_ids = pd.read_csv(os.path.join(settings.DATA_DIR, 'train_ids.csv'))['ids'].values.tolist()
+    valid_ids = pd.read_csv(os.path.join(settings.DATA_DIR, 'val_ids.csv'))['ids'].values.tolist()
     return train, train_ids, valid_ids
 
 
-def get_train_val_loaders(batch_size=16):
+def get_train_val_loaders(encoder_type, batch_size=16):
+    preprocessing_fn = smp.encoders.get_preprocessing_fn(encoder_type, 'imagenet')
     train, train_ids, valid_ids = prepare_df()
     num_workers = 24
     train_dataset = CloudDataset(df=train, datatype='train', img_ids=train_ids, transforms = get_training_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
@@ -99,13 +101,31 @@ def get_train_val_loaders(batch_size=16):
     }
     return loaders
 
+def test_prepare_df():
+    train, train_ids, val_ids1 = prepare_df()
+    train, train_ids, val_ids2 = prepare_df()
+    
+    print(len(set(val_ids1)), len(set(val_ids2)), len(set(val_ids1) & set(val_ids2)), len(set(val_ids1) - set(val_ids2)))
+    print(sorted(val_ids1[:50]))
+    print(sorted(val_ids1[-50:]))
+
+def test_ds():
+    train_loader = get_train_val_loaders('densenet201')['train']
+    for batch in train_loader.dataset:
+        print(batch)
+        break
+
 def test_train_loader():
-    train_loader = get_train_val_loaders()['train']
+    train_loader = get_train_val_loaders('densenet201')['train']
 
     for x in train_loader:
         print(x)
         break
+    print(dir(train_loader))
+    print(train_loader.dataset.img_ids[:50])
 
 if __name__ == '__main__':
-    test_train_loader()
+    #test_ds()
+    #test_train_loader()
+    test_prepare_df()
 

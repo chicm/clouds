@@ -1,3 +1,4 @@
+import os
 import argparse
 import numpy as np
 import torch
@@ -19,20 +20,27 @@ train_on_gpu = True
 
 
 def train(args):
-    num_epochs = 100
-    logdir = "./logs/segmentation"
-
-    model = create_model()
-    loaders = get_train_val_loaders(batch_size=args.batch_size)
+    ckp = None
+    if os.path.exists(args.log_dir + '/checkpoints/best.pth'):
+        ckp = args.log_dir + '/checkpoints/best.pth'
+    model = create_model(args.encoder_type, ckp=ckp)
+    loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size)
 
     # model, criterion, optimizer
     optimizer = RAdam([
-        {'params': model.decoder.parameters(), 'lr': 1e-2}, 
-        {'params': model.encoder.parameters(), 'lr': 1e-3},  
+        {'params': model.decoder.parameters(), 'lr': args.lr}, 
+        {'params': model.encoder.parameters(), 'lr': args.lr} # / 10.},  
     ])
     scheduler = ReduceLROnPlateau(optimizer, factor=0.15, patience=2)
     criterion = smp.utils.losses.BCEDiceLoss(eps=1.)
     runner = SupervisedRunner()
+
+    callbacks = [
+        DiceCallback(), 
+        EarlyStoppingCallback(patience=15, min_delta=0.001), 
+    ]
+    #if os.path.exists(args.log_dir + '/checkpoints/best_full.pth'):
+    #    callbacks.append(CheckpointCallback(resume=args.log_dir + '/checkpoints/best_full.pth'))
 
     runner.train(
         model=model,
@@ -40,25 +48,22 @@ def train(args):
         optimizer=optimizer,
         scheduler=scheduler,
         loaders=loaders,
-        callbacks=[
-            DiceCallback(), 
-            EarlyStoppingCallback(patience=25, min_delta=0.001), 
-            #CheckpointCallback(resume='./logs/segmentation/checkpoints/best_full.pth')
-            ],
-        logdir=logdir,
-        num_epochs=num_epochs,
+        callbacks=callbacks,
+        logdir=args.log_dir,
+        num_epochs=args.num_epochs,
         verbose=True
     )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Landmark detection')
-    parser.add_argument('--model_name', default='bert-base-uncased', type=str, help='learning rate')
-    parser.add_argument('--lr', default=2e-5, type=float, help='learning rate')
+    parser.add_argument('--encoder_type', type=str, required=True)
+    parser.add_argument('--log_dir', type=str, default='./logs')
+    parser.add_argument('--lr', default=1e-2, type=float, help='learning rate')
     parser.add_argument('--min_lr', default=1e-6, type=float, help='min learning rate')
     parser.add_argument('--batch_size', default=64, type=int, help='batch_size')
     parser.add_argument('--val_batch_size', default=256, type=int, help='batch_size')
     parser.add_argument('--iter_val', default=400, type=int, help='start epoch')
-    parser.add_argument('--num_epochs', default=1, type=int, help='epoch')
+    parser.add_argument('--num_epochs', default=60, type=int, help='epoch')
     parser.add_argument('--optim_name', default='RAdam', choices=['SGD', 'RAdam', 'Adam'], help='optimizer')
     parser.add_argument('--lrs', default='plateau', choices=['cosine', 'plateau'], help='LR sceduler')
     parser.add_argument('--patience', default=6, type=int, help='lr scheduler patience')
