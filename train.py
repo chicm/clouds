@@ -29,9 +29,9 @@ def train(args):
     # model, criterion, optimizer
     optimizer = RAdam([
         {'params': model.decoder.parameters(), 'lr': args.lr}, 
-        {'params': model.encoder.parameters(), 'lr': args.lr} # / 10.},  
+        {'params': model.encoder.parameters(), 'lr': args.lr / 10.},  
     ])
-    scheduler = ReduceLROnPlateau(optimizer, factor=0.15, patience=2)
+    scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=2)
     criterion = smp.utils.losses.BCEDiceLoss(eps=1.)
     runner = SupervisedRunner()
 

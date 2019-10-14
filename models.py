@@ -28,3 +28,13 @@ def create_model(encoder_type, ckp=None):
         model.load_state_dict(torch.load(ckp)['model_state_dict'])
 
     return model
+
+
+def test_model():
+    model = create_model('efficientnet-b2', ckp='./logs_eb2_lb652/checkpoints/best.pth').cuda()
+    x = torch.randn(2, 3, 320, 640).cuda()
+    y = model(x)
+    print(y.size())
+
+if __name__ == '__main__':
+    test_model()

@@ -63,7 +63,7 @@ def find_class_params(args):
         for t in range(0, 100, 5):
             t /= 100
             #for ms in [0, 100, 1200, 5000, 10000]:
-            for ms in [1000, 5000, 10000, 15000, 20000, 22500, 25000]:
+            for ms in [5000, 10000, 15000, 20000, 22500, 25000, 30000]:
             
                 masks = []
                 for i in range(class_id, len(probabilities), 4):

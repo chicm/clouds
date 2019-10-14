@@ -101,6 +101,20 @@ def get_train_val_loaders(encoder_type, batch_size=16):
     }
     return loaders
 
+def get_test_loader(encoder_type, batch_size=16):
+    preprocessing_fn = smp.encoders.get_preprocessing_fn(encoder_type, 'imagenet')
+
+    sub = pd.read_csv(os.path.join(settings.DATA_DIR, 'sample_submission.csv'))
+    sub['label'] = sub['Image_Label'].apply(lambda x: x.split('_')[1])
+    sub['im_id'] = sub['Image_Label'].apply(lambda x: x.split('_')[0])
+    
+    test_ids = sub['Image_Label'].apply(lambda x: x.split('_')[0]).drop_duplicates().values
+
+    test_dataset = CloudDataset(df=sub, datatype='test', img_ids=test_ids, transforms = get_validation_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=24)
+
+    return test_loader
+
 def test_prepare_df():
     train, train_ids, val_ids1 = prepare_df()
     train, train_ids, val_ids2 = prepare_df()
@@ -124,8 +138,15 @@ def test_train_loader():
     print(dir(train_loader))
     print(train_loader.dataset.img_ids[:50])
 
+def test_test_loader():
+    loader = get_test_loader('densenet201')
+    for x in loader:
+        print(x[0].size(), x[1].size())
+        break
+
 if __name__ == '__main__':
     #test_ds()
     #test_train_loader()
-    test_prepare_df()
+    #test_prepare_df()
+    test_test_loader()
 
