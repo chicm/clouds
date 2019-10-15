@@ -46,8 +46,11 @@ def predict_loader(models, loader):
     return probs, masks
 
 def ensemble(args):
-    class_params = {0: (0.5, 25000), 1: (0.7, 15000), 2: (0.4, 25000), 3: (0.6, 10000)}
+    #class_params = {0: (0.5, 25000), 1: (0.7, 15000), 2: (0.4, 25000), 3: (0.6, 10000)}
     models = create_models(args)
+    class_params = find_class_params(args, models)
+    #exit(0)
+
     test_loader = get_test_loader(args.encoder_types.split(',')[0], args.batch_size)
     probs, _ = predict_loader(models, test_loader)
 
@@ -74,40 +77,25 @@ def ensemble(args):
     sub['EncodedPixels'] = encoded_pixels
     sub.to_csv(args.out, columns=['Image_Label', 'EncodedPixels'], index=False)
 
+def find_class_params(args, models):
+    val_loader = get_train_val_loaders(args.encoder_types.split(',')[0], batch_size=args.batch_size)['valid']
+    probs, masks = predict_loader(models, val_loader)
+    print(probs.shape, masks.shape)
 
-
-def find_class_params(args):
-    runner = SupervisedRunner()
-    model = create_model(args.encoder_type)
-    valid_loader = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size)['valid']
-
-    encoded_pixels = []
-    loaders = {"infer": valid_loader}
-    runner.infer(
-        model=model,
-        loaders=loaders,
-        callbacks=[
-            CheckpointCallback(resume=args.ckp),
-            InferCallback()
-        ],
-    )
-    print(runner.callbacks)
     valid_masks = []
     probabilities = np.zeros((2220, 350, 525))
-    for i, (batch, output) in enumerate(tqdm(zip(
-            valid_loader.dataset, runner.callbacks[0].predictions["logits"]))):
-        image, mask = batch
-        for m in mask:
+    for i, (img_probs, img_masks) in enumerate(zip(probs, masks)):
+        for m in img_masks:
             if m.shape != (350, 525):
                 m = cv2.resize(m, dsize=(525, 350), interpolation=cv2.INTER_LINEAR)
             valid_masks.append(m)
 
-        for j, probability in enumerate(output):
+        for j, probability in enumerate(img_probs):
             if probability.shape != (350, 525):
                 probability = cv2.resize(probability, dsize=(525, 350), interpolation=cv2.INTER_LINEAR)
             probabilities[i * 4 + j, :, :] = probability
 
-
+    print(len(valid_masks), len(probabilities), valid_masks[0].shape, probabilities[0].shape)
     class_params = {}
     for class_id in range(4):
         print(class_id)
@@ -142,55 +130,14 @@ def find_class_params(args):
         
         class_params[class_id] = (best_threshold, best_size)
     print(class_params)
-    return class_params, runner
-
-def predict(args):
-    #model = create_model(args.encoder_type, ckp=args.ckp).cuda()
-    #model = nn.DataParallel(model)
-    #runner = SupervisedRunner(model=model)
-    class_params, runner = find_class_params(args)
-    #runner = create_runner(args)
-
-    preprocessing_fn = smp.encoders.get_preprocessing_fn(args.encoder_type, 'imagenet')
-    
-    sub = pd.read_csv(os.path.join(settings.DATA_DIR, 'sample_submission.csv'))
-    sub['label'] = sub['Image_Label'].apply(lambda x: x.split('_')[1])
-    sub['im_id'] = sub['Image_Label'].apply(lambda x: x.split('_')[0])
-
-    test_ids = sub['Image_Label'].apply(lambda x: x.split('_')[0]).drop_duplicates().values
-
-    test_dataset = CloudDataset(df=sub, datatype='test', img_ids=test_ids, transforms = get_validation_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=24)
-
-    loaders = {"test": test_loader}
-
-    encoded_pixels = []
-    image_id = 0
-    for i, test_batch in enumerate(tqdm(loaders['test'])):
-        runner_out = runner.predict_batch({"features": test_batch[0].cuda()})['logits']
-        for i, batch in enumerate(runner_out):
-            for probability in batch:
-                
-                probability = probability.cpu().detach().numpy()
-                if probability.shape != (350, 525):
-                    probability = cv2.resize(probability, dsize=(525, 350), interpolation=cv2.INTER_LINEAR)
-                predict, num_predict = post_process(sigmoid(probability), class_params[image_id % 4][0], class_params[image_id % 4][1])
-                if num_predict == 0:
-                    encoded_pixels.append('')
-                else:
-                    r = mask2rle(predict)
-                    encoded_pixels.append(r)
-                image_id += 1
-
-    sub['EncodedPixels'] = encoded_pixels
-    sub.to_csv(args.out, columns=['Image_Label', 'EncodedPixels'], index=False)
+    return class_params
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Landmark detection')
     parser.add_argument('--encoder_types', type=str, required=True)
     parser.add_argument('--ckps', type=str, required=True)
-    parser.add_argument('--out', type=str)
+    parser.add_argument('--out', type=str, default='ensemble.csv')
     parser.add_argument('--batch_size', default=16, type=int, help='batch_size')
     parser.add_argument('--ifold', default=0, type=int, help='lr scheduler patience')
     
