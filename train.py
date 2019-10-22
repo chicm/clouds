@@ -12,6 +12,7 @@ from catalyst.dl.callbacks import DiceCallback, EarlyStoppingCallback, InferCall
 import segmentation_models_pytorch as smp
 
 from models import create_model
+from unet_model import create_unet_model
 from loader import get_train_val_loaders
 from radam import RAdam
 import settings
@@ -23,14 +24,20 @@ def train(args):
     ckp = None
     if os.path.exists(args.log_dir + '/checkpoints/best.pth'):
         ckp = args.log_dir + '/checkpoints/best.pth'
-    model = create_model(args.encoder_type, ckp=ckp)
+    if args.myunet:
+        model = create_unet_model(ckp=ckp)
+    else:
+        model = create_model(args.encoder_type, ckp=ckp)
     loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size)
 
     # model, criterion, optimizer
-    optimizer = RAdam([
-        {'params': model.decoder.parameters(), 'lr': args.lr}, 
-        {'params': model.encoder.parameters(), 'lr': args.lr / 10.},  
-    ])
+    if args.myunet:
+        optimizer = RAdam(model.parameters(), lr=args.lr)
+    else:
+        optimizer = RAdam([
+            {'params': model.decoder.parameters(), 'lr': args.lr}, 
+            {'params': model.encoder.parameters(), 'lr': args.lr / 10.},  
+        ])
     scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=2)
     criterion = smp.utils.losses.BCEDiceLoss(eps=1.)
     runner = SupervisedRunner()
@@ -70,6 +77,7 @@ if __name__ == '__main__':
     parser.add_argument('--factor', default=0.5, type=float, help='lr scheduler factor')
     parser.add_argument('--t_max', default=8, type=int, help='lr scheduler patience')
     parser.add_argument('--val', action='store_true')
+    parser.add_argument('--myunet', action='store_true')
     parser.add_argument('--dev_mode', action='store_true')
     parser.add_argument('--predict', action='store_true')
     parser.add_argument('--no_first_val', action='store_true')
