@@ -86,6 +86,8 @@ def prepare_df():
 
 
 def get_train_val_loaders(encoder_type, batch_size=16):
+    if encoder_type.startswith('myunet'):
+        encoder_type = 'resnet50'
     preprocessing_fn = smp.encoders.get_preprocessing_fn(encoder_type, 'imagenet')
     train, train_ids, valid_ids = prepare_df()
     num_workers = 24
@@ -102,6 +104,9 @@ def get_train_val_loaders(encoder_type, batch_size=16):
     return loaders
 
 def get_test_loader(encoder_type, batch_size=16):
+    if encoder_type.startswith('myunet'):
+        encoder_type = 'resnet50'
+    
     preprocessing_fn = smp.encoders.get_preprocessing_fn(encoder_type, 'imagenet')
 
     sub = pd.read_csv(os.path.join(settings.DATA_DIR, 'sample_submission.csv'))

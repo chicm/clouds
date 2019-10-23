@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader,Dataset
-from loader import CloudDataset, get_train_val_loaders
+from loader import CloudDataset, get_train_val_loaders, get_test_loader
 from catalyst.dl.runner import SupervisedRunner
 from catalyst.dl.callbacks import DiceCallback, InferCallback, CheckpointCallback
 from models import create_model
@@ -99,16 +99,7 @@ def predict(args):
     class_params, runner = find_class_params(args)
     #runner = create_runner(args)
 
-    preprocessing_fn = smp.encoders.get_preprocessing_fn(args.encoder_type, 'imagenet')
-    
-    sub = pd.read_csv(os.path.join(settings.DATA_DIR, 'sample_submission.csv'))
-    sub['label'] = sub['Image_Label'].apply(lambda x: x.split('_')[1])
-    sub['im_id'] = sub['Image_Label'].apply(lambda x: x.split('_')[0])
-
-    test_ids = sub['Image_Label'].apply(lambda x: x.split('_')[0]).drop_duplicates().values
-
-    test_dataset = CloudDataset(df=sub, datatype='test', img_ids=test_ids, transforms = get_validation_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=24)
+    test_loader = get_test_loader(args.encoder_type, args.batch_size)
 
     loaders = {"test": test_loader}
 
@@ -129,7 +120,8 @@ def predict(args):
                     r = mask2rle(predict)
                     encoded_pixels.append(r)
                 image_id += 1
-
+    
+    sub = pd.read_csv(os.path.join(settings.DATA_DIR, 'sample_submission.csv'))
     sub['EncodedPixels'] = encoded_pixels
     sub.to_csv(args.out, columns=['Image_Label', 'EncodedPixels'], index=False)
 

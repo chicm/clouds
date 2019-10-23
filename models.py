@@ -1,7 +1,7 @@
 import os
 import torch
 import segmentation_models_pytorch as smp
-
+from unet_model import create_unet_model
 # 'densenet201', 'se_resnext101_32x4d', 'resnet18'
 #ENCODER = 'resnet50'
 #ENCODER = 'efficientnet-b2'
@@ -16,12 +16,16 @@ ACTIVATION = None
 #preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 
 def create_model(encoder_type, ckp=None):
-    model = smp.Unet(
-        encoder_name=encoder_type, 
-        encoder_weights=ENCODER_WEIGHTS, 
-        classes=4, 
-        activation=ACTIVATION,
-    )
+    if encoder_type.startswith('myunet'):
+        nlayers = int(encoder_type.split('_')[1])
+        model = create_unet_model(nlayers)
+    else:
+        model = smp.Unet(
+            encoder_name=encoder_type, 
+            encoder_weights=ENCODER_WEIGHTS, 
+            classes=4, 
+            activation=ACTIVATION,
+        )
     #model_file = './logs/segmentation/checkpoints/best.pth'
     if ckp and os.path.exists(ckp):
         print('loading {}...'.format(ckp))

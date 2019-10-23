@@ -24,14 +24,11 @@ def train(args):
     ckp = None
     if os.path.exists(args.log_dir + '/checkpoints/best.pth'):
         ckp = args.log_dir + '/checkpoints/best.pth'
-    if args.myunet:
-        model = create_unet_model(ckp=ckp)
-    else:
-        model = create_model(args.encoder_type, ckp=ckp)
+    model = create_model(args.encoder_type, ckp=ckp)
     loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size)
 
     # model, criterion, optimizer
-    if args.myunet:
+    if args.encoder_type.startswith('myunet'):
         optimizer = RAdam(model.parameters(), lr=args.lr)
     else:
         optimizer = RAdam([
@@ -77,7 +74,6 @@ if __name__ == '__main__':
     parser.add_argument('--factor', default=0.5, type=float, help='lr scheduler factor')
     parser.add_argument('--t_max', default=8, type=int, help='lr scheduler patience')
     parser.add_argument('--val', action='store_true')
-    parser.add_argument('--myunet', action='store_true')
     parser.add_argument('--dev_mode', action='store_true')
     parser.add_argument('--predict', action='store_true')
     parser.add_argument('--no_first_val', action='store_true')

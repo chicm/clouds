@@ -32,15 +32,20 @@ def predict_loader(models, loader):
     with torch.no_grad():
         for batch in tqdm(loader):
             img, mask = batch[0].cuda(), batch[1]
+            #masks.append(mask.numpy())
             masks.append(mask)
             outputs = []
             for model in models:
+                #output = model(img).cpu().numpy()
                 output = model(img).cpu()
                 outputs.append(output)
             avg_ouput = torch.stack(outputs).mean(0)
             probs.append(avg_ouput)
+            #avg_output = np.average(outputs, weights=[0.4, 0.3, 0.3], axis=0)
     probs = torch.cat(probs, 0).numpy()
     masks = torch.cat(masks, 0).numpy()
+    #probs = np.concatenate(probs, 0)
+    #masks = np.concatenate(masks, 0)
     print('probs:', probs.shape)
     print('masks:', masks.shape)
     return probs, masks
@@ -103,7 +108,7 @@ def find_class_params(args, models):
         for t in range(0, 100, 5):
             t /= 100
             #for ms in [0, 100, 1200, 5000, 10000]:
-            for ms in [5000, 10000, 15000, 20000, 22500, 25000, 30000]:
+            for ms in [5000, 10000, 15000, 20000, 22500, 25000]:
             
                 masks = []
                 for i in range(class_id, len(probabilities), 4):

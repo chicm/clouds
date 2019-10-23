@@ -261,10 +261,10 @@ class DecoderBlockV5(nn.Module):
 
 
 
-class UNetResNetV5(nn.Module):
+class UNet5(nn.Module):
     def __init__(self, encoder_depth=50, num_filters=32, dropout_2d=0.5):
-        super(UNetResNetV5, self).__init__()
-        self.name = 'UNetResNetV5_'+str(encoder_depth)
+        super(UNet5, self).__init__()
+        self.name = 'UNet5_'+str(encoder_depth)
         self.dropout_2d = dropout_2d
 
         self.resnet, bottom_channel_nr = create_resnet(encoder_depth)
@@ -326,16 +326,16 @@ class UNetResNetV5(nn.Module):
 
         return self.logit(f)
 
-class UNetResNetV6(nn.Module):
+class UNet6(nn.Module):
     '''
     1. Remove first pool from UNetResNetV5, such that resolution is doubled
     2. Remove scSE from center block
     3. Increase default dropout
     '''
     def __init__(self, encoder_depth, num_filters=32, dropout_2d=0.5):
-        super(UNetResNetV6, self).__init__()
-        assert encoder_depth == 34, 'UNetResNetV6: only 34 layers is supported!'
-        self.name = 'UNetResNetV6_'+str(encoder_depth)
+        super(UNet6, self).__init__()
+        assert encoder_depth == 34, 'UNet6: only 34 layers is supported!'
+        self.name = 'UNet6_'+str(encoder_depth)
         self.dropout_2d = dropout_2d
 
         self.resnet, bottom_channel_nr = create_resnet(encoder_depth)
@@ -608,19 +608,20 @@ class UNet8(nn.Module):
         return self.logit(f), img_logit
 
 import os
-def create_unet_model(ckp=None):
-    model = UNetResNetV5(50)
+def create_unet_model(nlayers=50):
+    #model = eval(model_name)(nlayers)
+    model = UNet5(nlayers)
     
-    if ckp is not None:
-        if os.path.exists(ckp):
-            print('loading {}...'.format(ckp))
-            model.load_state_dict(torch.load(ckp)['model_state_dict'])
-        else:
-            raise RuntimeError('checkpoint does not exist')
+    #if ckp is not None:
+    #    if os.path.exists(ckp):
+    #        print('loading {}...'.format(ckp))
+    #        model.load_state_dict(torch.load(ckp)['model_state_dict'])
+    #    else:
+    #        raise RuntimeError('checkpoint does not exist')
     return model
 
 def test():
-    model = UNetResNetV5(50).cuda()
+    model = create_unet_model('UNet5').cuda()
     #model.freeze_bn()
     inputs = torch.randn(2,3,320,640).cuda()
     out = model(inputs)
