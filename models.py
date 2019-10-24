@@ -15,7 +15,7 @@ DEVICE = 'cuda'
 ACTIVATION = None
 #preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 
-def create_model(encoder_type, ckp=None):
+def create_model(encoder_type, ckp=None, act=None):
     if encoder_type.startswith('myunet'):
         nlayers = int(encoder_type.split('_')[1])
         model = create_unet_model(nlayers)
@@ -24,7 +24,7 @@ def create_model(encoder_type, ckp=None):
             encoder_name=encoder_type, 
             encoder_weights=ENCODER_WEIGHTS, 
             classes=4, 
-            activation=ACTIVATION,
+            activation=act,
         )
     #model_file = './logs/segmentation/checkpoints/best.pth'
     if ckp and os.path.exists(ckp):

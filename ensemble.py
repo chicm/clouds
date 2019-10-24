@@ -17,16 +17,16 @@ import ttach as tta
 import settings
 
 #w = np.array([1., 0.5, 0.5, 0.5, 0.5, 0.3, 1, 1, 0.5])
-w = np.array([1.]*7)
+#w = np.array([1.]*5)
 #w = np.array([1.,1.,1.,1.,1.])
-w /= w.sum()
-print(w)
+#w /= w.sum()
+#print(w)
 
 def create_models(args):
     models = []
     for encoder_type, ckp in zip(args.encoder_types.split(','), args.ckps.split(',')):
-        model = create_model(encoder_type, ckp).cuda()
-        #model = tta.SegmentationTTAWrapper(model, tta.aliases.flip_transform(), merge_mode='mean')
+        model = create_model(encoder_type, ckp, 'sigmoid').cuda()
+        model = tta.SegmentationTTAWrapper(model, tta.aliases.d4_transform(), merge_mode='mean')
         if torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
         model.eval()
@@ -34,30 +34,19 @@ def create_models(args):
     return models
 
 def predict_loader(models, loader):
-    assert len(models) == len(w)
     probs, masks = [], []
     with torch.no_grad():
         for batch in tqdm(loader):
             img, mask = batch[0].cuda(), batch[1]
-            #masks.append(mask.numpy())
             masks.append(mask)
-            outputs = None
+            outputs = []
             for i, model in enumerate(models):
-                #output = model(img).cpu().numpy()
-                output = torch.sigmoid(model(img)).cpu() #** 0.5
-                #outputs.append(output)
-                if outputs is None:
-                    outputs = output * w[i]
-                else:
-                    outputs += output *w[i]
-            #avg_ouput = torch.stack(outputs).mean(0)
-            #probs.append(avg_ouput)
-            probs.append(outputs)
-            #avg_output = np.average(outputs, weights=[0.4, 0.3, 0.3], axis=0)
+                output = model(img).cpu() #** 0.5
+                outputs.append(output)
+            avg_ouput = torch.stack(outputs).mean(0)
+            probs.append(avg_ouput)
     probs = torch.cat(probs, 0).numpy()
     masks = torch.cat(masks, 0).numpy()
-    #probs = np.concatenate(probs, 0)
-    #masks = np.concatenate(masks, 0)
     print('probs:', probs.shape)
     print('masks:', masks.shape)
     return probs, masks
