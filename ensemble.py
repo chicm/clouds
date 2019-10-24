@@ -13,14 +13,20 @@ from tqdm import tqdm
 import cv2
 from utils import post_process, sigmoid, dice, get_validation_augmentation, get_preprocessing, mask2rle
 import segmentation_models_pytorch as smp
-
+import ttach as tta
 import settings
 
+#w = np.array([1., 0.5, 0.5, 0.5, 0.5, 0.3, 1, 1, 0.5])
+w = np.array([1.]*7)
+#w = np.array([1.,1.,1.,1.,1.])
+w /= w.sum()
+print(w)
 
 def create_models(args):
     models = []
     for encoder_type, ckp in zip(args.encoder_types.split(','), args.ckps.split(',')):
         model = create_model(encoder_type, ckp).cuda()
+        #model = tta.SegmentationTTAWrapper(model, tta.aliases.flip_transform(), merge_mode='mean')
         if torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
         model.eval()
@@ -28,19 +34,25 @@ def create_models(args):
     return models
 
 def predict_loader(models, loader):
+    assert len(models) == len(w)
     probs, masks = [], []
     with torch.no_grad():
         for batch in tqdm(loader):
             img, mask = batch[0].cuda(), batch[1]
             #masks.append(mask.numpy())
             masks.append(mask)
-            outputs = []
-            for model in models:
+            outputs = None
+            for i, model in enumerate(models):
                 #output = model(img).cpu().numpy()
-                output = model(img).cpu()
-                outputs.append(output)
-            avg_ouput = torch.stack(outputs).mean(0)
-            probs.append(avg_ouput)
+                output = torch.sigmoid(model(img)).cpu() #** 0.5
+                #outputs.append(output)
+                if outputs is None:
+                    outputs = output * w[i]
+                else:
+                    outputs += output *w[i]
+            #avg_ouput = torch.stack(outputs).mean(0)
+            #probs.append(avg_ouput)
+            probs.append(outputs)
             #avg_output = np.average(outputs, weights=[0.4, 0.3, 0.3], axis=0)
     probs = torch.cat(probs, 0).numpy()
     masks = torch.cat(masks, 0).numpy()
@@ -69,7 +81,7 @@ def ensemble(args):
             #probability = probability.cpu().detach().numpy()
             if probability.shape != (350, 525):
                 probability = cv2.resize(probability, dsize=(525, 350), interpolation=cv2.INTER_LINEAR)
-            predict, num_predict = post_process(sigmoid(probability), class_params[image_id % 4][0], class_params[image_id % 4][1])
+            predict, num_predict = post_process(probability, class_params[image_id % 4][0], class_params[image_id % 4][1])
             if num_predict == 0:
                 encoded_pixels.append('')
             else:
@@ -105,7 +117,7 @@ def find_class_params(args, models):
     for class_id in range(4):
         print(class_id)
         attempts = []
-        for t in range(0, 100, 5):
+        for t in range(30, 90, 5):
             t /= 100
             #for ms in [0, 100, 1200, 5000, 10000]:
             for ms in [5000, 10000, 15000, 20000, 22500, 25000]:
@@ -113,7 +125,7 @@ def find_class_params(args, models):
                 masks = []
                 for i in range(class_id, len(probabilities), 4):
                     probability = probabilities[i]
-                    predict, num_predict = post_process(sigmoid(probability), t, ms)
+                    predict, num_predict = post_process(probability, t, ms)
                     masks.append(predict)
 
                 d = []
