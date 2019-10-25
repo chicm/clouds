@@ -16,6 +16,9 @@ ACTIVATION = None
 #preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 
 def create_model(encoder_type, ckp=None, act=None):
+    global ENCODER_WEIGHTS
+    if encoder_type in ['resnext101_32x16d', 'resnext101_32x32d', 'resnext101_32x48d']:
+        ENCODER_WEIGHTS = 'instagram'
     if encoder_type.startswith('myunet'):
         nlayers = int(encoder_type.split('_')[1])
         model = create_unet_model(nlayers)

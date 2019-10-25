@@ -36,8 +36,8 @@ from catalyst.contrib.models.segmentation import Unet
 from catalyst.dl.callbacks import DiceCallback, EarlyStoppingCallback, InferCallback, CheckpointCallback
 
 import segmentation_models_pytorch as smp
-from utils import get_training_augmentation, get_validation_augmentation, get_preprocessing, 
-
+from utils import get_training_augmentation, get_validation_augmentation, get_preprocessing, make_mask
+from sklearn.model_selection import StratifiedKFold
 import settings
 
 class CloudDataset(Dataset):
@@ -71,27 +71,33 @@ class CloudDataset(Dataset):
     def __len__(self):
         return len(self.img_ids)
 
-def prepare_df():
+def prepare_df(ifold=0):
     train = pd.read_csv(f'{settings.DATA_DIR}/train.csv')
     train['label'] = train['Image_Label'].apply(lambda x: x.split('_')[1])
     train['im_id'] = train['Image_Label'].apply(lambda x: x.split('_')[0])
 
     id_mask_count = train.loc[train['EncodedPixels'].isnull() == False, 'Image_Label'].apply(lambda x: x.split('_')[0]).value_counts().\
         reset_index().rename(columns={'index': 'img_id', 'Image_Label': 'count'})
-    #train_ids, valid_ids = train_test_split(id_mask_count['img_id'].values, random_state=42, stratify=id_mask_count['count'], test_size=0.1)
-    #test_ids = sub['Image_Label'].apply(lambda x: x.split('_')[0]).drop_duplicates().values
-    #sub = pd.read_csv(f'{path}/sample_submission.csv')
-    train_ids = pd.read_csv(os.path.join(settings.DATA_DIR, 'train_ids.csv'))['ids'].values.tolist()
-    valid_ids = pd.read_csv(os.path.join(settings.DATA_DIR, 'val_ids.csv'))['ids'].values.tolist()
+    id_mask_count = id_mask_count.sort_values(by='img_id')
+
+    #print(id_mask_count.head())
+
+    kf = StratifiedKFold(5, random_state=1234, shuffle=True)
+    for i, (train_n, val_n) in enumerate(kf.split(id_mask_count['img_id'].values, id_mask_count['count'].values)):
+        if i == ifold:
+            #return train.iloc[train_n], train.iloc[val_n]
+            train_ids = id_mask_count.iloc[train_n]['img_id'].values
+            valid_ids = id_mask_count.iloc[val_n]['img_id'].values
+            break
 
     return train, train_ids, valid_ids
 
 
-def get_train_val_loaders(encoder_type, batch_size=16):
+def get_train_val_loaders(encoder_type, batch_size=16, ifold=0):
     if encoder_type.startswith('myunet'):
         encoder_type = 'resnet50'
     preprocessing_fn = smp.encoders.get_preprocessing_fn(encoder_type, 'imagenet')
-    train, train_ids, valid_ids = prepare_df()
+    train, train_ids, valid_ids = prepare_df(ifold=ifold)
     num_workers = 24
     train_dataset = CloudDataset(df=train, datatype='train', img_ids=train_ids, transforms = get_training_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
     valid_dataset = CloudDataset(df=train, datatype='valid', img_ids=valid_ids, transforms = get_validation_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
@@ -123,12 +129,12 @@ def get_test_loader(encoder_type, batch_size=16):
     return test_loader
 
 def test_prepare_df():
-    train, train_ids, val_ids1 = prepare_df()
-    train, train_ids, val_ids2 = prepare_df()
-    
+    train, train_ids, val_ids1 = prepare_df(0)
+    train, train_ids, val_ids2 = prepare_df(1)
+    print(len(train_ids))
     print(len(set(val_ids1)), len(set(val_ids2)), len(set(val_ids1) & set(val_ids2)), len(set(val_ids1) - set(val_ids2)))
-    print(sorted(val_ids1[:50]))
-    print(sorted(val_ids1[-50:]))
+    print(sorted(val_ids1[:10]))
+    print(sorted(val_ids1[-10:]))
 
 def test_ds():
     train_loader = get_train_val_loaders('densenet201')['train']
@@ -154,6 +160,6 @@ def test_test_loader():
 if __name__ == '__main__':
     #test_ds()
     #test_train_loader()
-    #test_prepare_df()
-    test_test_loader()
+    test_prepare_df()
+    #test_test_loader()
 

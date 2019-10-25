@@ -25,7 +25,7 @@ def train(args):
     if os.path.exists(args.log_dir + '/checkpoints/best.pth'):
         ckp = args.log_dir + '/checkpoints/best.pth'
     model = create_model(args.encoder_type, ckp=ckp)
-    loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size)
+    loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size, ifold=args.ifold)
 
     # model, criterion, optimizer
     if args.encoder_type.startswith('myunet'):
@@ -41,7 +41,7 @@ def train(args):
 
     callbacks = [
         DiceCallback(), 
-        EarlyStoppingCallback(patience=15, min_delta=0.001), 
+        EarlyStoppingCallback(patience=20, min_delta=0.001), 
     ]
     #if os.path.exists(args.log_dir + '/checkpoints/best_full.pth'):
     #    callbacks.append(CheckpointCallback(resume=args.log_dir + '/checkpoints/best_full.pth'))
