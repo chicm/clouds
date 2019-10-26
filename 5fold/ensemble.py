@@ -52,7 +52,10 @@ def predict_loader(models, loader):
     return probs, masks
 
 def ensemble(args):
-    #class_params = {0: (0.5, 25000), 1: (0.7, 15000), 2: (0.4, 25000), 3: (0.6, 10000)}
+    #class_params = {0: (0.5, 10000), 1: (0.5, 10000), 2: (0.5, 10000), 3: (0.5, 10000)} lb652
+    #class_params = {0: (0.35, 15000), 1: (0.65, 15000), 2: (0.3, 15000), 3: (0.4, 10000)}  lb656
+    #class_params = {0: (0.35, 10000), 1: (0.45, 10000), 2: (0.35, 10000), 3: (0.35, 10000)} 
+
     models = create_models(args)
     class_params = find_class_params(args, models)
     #exit(0)
@@ -84,12 +87,12 @@ def ensemble(args):
     sub.to_csv(args.out, columns=['Image_Label', 'EncodedPixels'], index=False)
 
 def find_class_params(args, models):
-    val_loader = get_train_val_loaders(args.encoder_types.split(',')[0], batch_size=args.batch_size)['valid']
+    val_loader = get_train_val_loaders(args.encoder_types.split(',')[0], batch_size=args.batch_size, ifold=args.ifold)['valid']
     probs, masks = predict_loader(models, val_loader)
     print(probs.shape, masks.shape)
 
     valid_masks = []
-    probabilities = np.zeros((2220, 350, 525))
+    probabilities = np.zeros((probs.shape[0]*4, 350, 525))
     for i, (img_probs, img_masks) in enumerate(zip(probs, masks)):
         for m in img_masks:
             if m.shape != (350, 525):
@@ -109,7 +112,7 @@ def find_class_params(args, models):
         for t in range(30, 90, 5):
             t /= 100
             #for ms in [0, 100, 1200, 5000, 10000]:
-            for ms in [5000, 10000, 15000, 20000, 22500, 25000]:
+            for ms in [100, 1000, 2000, 5000, 10000, 15000, 20000]:
             
                 masks = []
                 for i in range(class_id, len(probabilities), 4):

@@ -214,11 +214,19 @@ def get_training_augmentation():
 def get_training_augmentation():
     train_transform = [
         albu.Resize(384, 576),
-        albu.HorizontalFlip(p=0.25),
-        albu.VerticalFlip(p=0.25),
-        albu.ShiftScaleRotate(scale_limit=0.5, rotate_limit=15, shift_limit=0.1, p=0.5, border_mode=cv2.BORDER_REFLECT),
-        albu.GridDistortion(p=0.5),
-        albu.OpticalDistortion(p=0.5, distort_limit=2, shift_limit=0.5)
+        albu.HorizontalFlip(p=0.5),
+        albu.VerticalFlip(p=0.5),
+        albu.ShiftScaleRotate(scale_limit=0.5, rotate_limit=15, shift_limit=0.15, p=0.5, border_mode=cv2.BORDER_REFLECT),
+        #albu.GridDistortion(p=0.5),
+        #albu.OpticalDistortion(p=0.5, distort_limit=2, shift_limit=0.5)
+        albu.OneOf([
+            albu.CLAHE(clip_limit=2),
+            albu.IAASharpen(),
+            albu.IAAEmboss(),
+            albu.RandomContrast(),
+            albu.RandomBrightness(),
+        ], p=0.2),
+        albu.RandomBrightnessContrast(p=0.2)
     ]
     return albu.Compose(train_transform)
 

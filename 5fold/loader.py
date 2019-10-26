@@ -98,6 +98,7 @@ def get_train_val_loaders(encoder_type, batch_size=16, ifold=0):
         encoder_type = 'resnet50'
     preprocessing_fn = smp.encoders.get_preprocessing_fn(encoder_type, 'imagenet')
     train, train_ids, valid_ids = prepare_df(ifold=ifold)
+    print('val:', valid_ids[:10])
     num_workers = 24
     train_dataset = CloudDataset(df=train, datatype='train', img_ids=train_ids, transforms = get_training_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
     valid_dataset = CloudDataset(df=train, datatype='valid', img_ids=valid_ids, transforms = get_validation_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
