@@ -97,6 +97,9 @@ def get_train_val_loaders(encoder_type, batch_size=16):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
+    train_loader.num = len(train_ids)
+    valid_loader.num = len(valid_ids)
+
     loaders = {
         "train": train_loader,
         "valid": valid_loader
