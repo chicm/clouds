@@ -67,7 +67,7 @@ def train(args):
         optimizer = optim.SGD(model.parameters(), momentum=0.9, lr=args.lr)
 
     if args.lrs == 'plateau':
-        lr_scheduler = ReduceLROnPlateau(optimizer, factor=args.factor, patience=args.patience, min_lr=args.min_lr)
+        lr_scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=args.factor, patience=args.patience, min_lr=args.min_lr)
     else:
         lr_scheduler = CosineAnnealingLR(optimizer, args.t_max, eta_min=args.min_lr)
 
