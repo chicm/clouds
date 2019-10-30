@@ -15,7 +15,7 @@ DEVICE = 'cuda'
 ACTIVATION = None
 #preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 
-def create_model(encoder_type, act=None, work_dir='./work_dir'):
+def create_model(encoder_type, act=None, work_dir='./work_dir', ckp=None):
     model = smp.Unet(
         encoder_name=encoder_type, 
         encoder_weights=ENCODER_WEIGHTS, 
@@ -23,11 +23,16 @@ def create_model(encoder_type, act=None, work_dir='./work_dir'):
         activation=act,
     )
 
-    ckp = os.path.join(work_dir, encoder_type, 'checkpoints', 'best.pth')
+    if ckp is None:
+        ckp = os.path.join(work_dir, encoder_type, 'checkpoints', 'best.pth')
     print('{} exists: {}'.format(ckp, os.path.exists(ckp)))
     if os.path.exists(ckp):
         print('loading {}...'.format(ckp))
-        model.load_state_dict(torch.load(ckp))
+        w = torch.load(ckp)
+        if 'model_state_dict' in w:
+            model.load_state_dict(w['model_state_dict'])
+        else:
+            model.load_state_dict(w)
 
     return model, ckp
 

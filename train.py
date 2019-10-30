@@ -49,7 +49,7 @@ def criterion(y_pred, y_true):
 
 
 def train(args):
-    model, model_file = create_model(args.encoder_type, work_dir=args.work_dir)
+    model, model_file = create_model(args.encoder_type, work_dir=args.work_dir, ckp=args.ckp)
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
     model = model.cuda()
@@ -186,6 +186,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Landmark detection')
     parser.add_argument('--encoder_type', type=str, required=True)
     parser.add_argument('--work_dir', type=str, default='./work_dir')
+    parser.add_argument('--ckp', type=str, default=None)
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--min_lr', default=1e-5, type=float, help='min learning rate')
     parser.add_argument('--batch_size', default=32, type=int, help='batch_size')
