@@ -25,7 +25,7 @@ import settings
 def create_models(args):
     models = []
     for encoder_type, ckp in zip(args.encoder_types.split(','), args.ckps.split(',')):
-        model = create_model(encoder_type, ckp, 'sigmoid').cuda()
+        model = create_model(encoder_type, ckp=ckp, act='sigmoid')[0].cuda()
         model = tta.SegmentationTTAWrapper(model, tta.aliases.d4_transform(), merge_mode='mean')
         if torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
