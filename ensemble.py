@@ -60,7 +60,7 @@ def ensemble(args):
     test_loader = get_test_loader(args.encoder_types.split(',')[0], args.batch_size)
     probs, _ = predict_loader(models, test_loader)
 
-    encoded_pixels = []
+    encoded_pixels, encoded_pixels_no_minsize = [], []
     image_id = 0
     for img_out in tqdm(probs):
         #runner_out = runner.predict_batch({"features": test_batch[0].cuda()})['logits']
@@ -76,12 +76,24 @@ def ensemble(args):
             else:
                 r = mask2rle(predict)
                 encoded_pixels.append(r)
+
+            predict2, num_predict2 = post_process(probability, class_params[image_id % 4][0], 0)
+            if num_predict2 == 0:
+                encoded_pixels_no_minsize.append('')
+            else:
+                r2 = mask2rle(predict2)
+                encoded_pixels_no_minsize.append(r2)
+
             image_id += 1
 
     sub = pd.read_csv(os.path.join(settings.DATA_DIR, 'sample_submission.csv'))
 
     sub['EncodedPixels'] = encoded_pixels
     sub.to_csv(args.out, columns=['Image_Label', 'EncodedPixels'], index=False)
+
+    sub['EncodedPixels'] = encoded_pixels_no_minsize
+    sub.to_csv(args.out+'_no_minsize', columns=['Image_Label', 'EncodedPixels'], index=False)
+
 
 def find_class_params(args, models):
     val_loader = get_train_val_loaders(args.encoder_types.split(',')[0], batch_size=args.batch_size)['valid']

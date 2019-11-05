@@ -15,6 +15,7 @@ from catalyst.dl.core import MetricCallback
 from catalyst.dl.utils.criterion.dice import dice
 import segmentation_models_pytorch as smp
 from segmentation_models_pytorch.utils.losses import BCEDiceLoss
+from apex import amp
 
 from models import create_model
 from loader import get_train_val_loaders
@@ -50,8 +51,6 @@ def criterion(y_pred, y_true):
 
 def train(args):
     model, model_file = create_model(args.encoder_type, work_dir=args.work_dir, ckp=args.ckp)
-    if torch.cuda.device_count() > 1:
-        model = DataParallel(model)
     model = model.cuda()
 
     loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size)
@@ -67,10 +66,16 @@ def train(args):
     elif args.optim_name == 'SGD':
         optimizer = optim.SGD(model.parameters(), momentum=0.9, lr=args.lr)
 
+    model, optimizer = amp.initialize(model, optimizer, opt_level="O1",verbosity=0)
+
+    if torch.cuda.device_count() > 1:
+        model = DataParallel(model)
+
     if args.lrs == 'plateau':
         lr_scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=args.factor, patience=args.patience, min_lr=args.min_lr)
     else:
         lr_scheduler = CosineAnnealingLR(optimizer, args.t_max, eta_min=args.min_lr)
+
 
 
     best_metrics = 0.
@@ -108,10 +113,14 @@ def train(args):
           
             outputs = model(img)
             loss = criterion(outputs, targets)
-            (loss*batch_size).backward()
+            #(loss*batch_size).backward()
+
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
             
-            optimizer.step()
-            optimizer.zero_grad()
+            if batch_idx % 4 == 0:
+                optimizer.step()
+                optimizer.zero_grad()
 
             train_loss += loss.item()
             print('\r {:4d} | {:.6f} | {:06d}/{} | {:.4f} | {:.4f} |'.format(

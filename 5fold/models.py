@@ -1,5 +1,7 @@
 import os
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import segmentation_models_pytorch as smp
 from unet_model import create_unet_model
 # 'densenet201', 'se_resnext101_32x4d', 'resnet18'
@@ -36,6 +38,24 @@ def create_model(encoder_type, ckp=None, act=None):
 
     return model
 
+class UNetC(smp.Unet):
+    def __init__(self, encoder_type, encoder_weights='imagenet', classes=4, activation=None):
+        super().__init__(encoder_name=encoder_type, encoder_weights=encoder_weights, classes=classes, activation=activation)
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Linear(self.encoder.out_shapes[0], classes)
+
+    def logits(self, x):
+        x = self.avg_pool(x)
+        x = F.dropout2d(x, 0.2, self.training)
+        x = x.view(x.size(0), -1)
+        return self.fc(x)
+
+    def forward(self, x):
+        x = self.encoder(x)
+        cls_logits = self.logits(x[0])
+        x = self.decoder(x)
+        return x, cls_logits
+
 
 def test_model():
     model = create_model('efficientnet-b2', ckp='./logs_eb2_lb652/checkpoints/best.pth').cuda()
@@ -43,5 +63,13 @@ def test_model():
     y = model(x)
     print(y.size())
 
+def test_unetc():
+    model = UNetC('densenet161').cuda()
+    x = torch.randn(2, 3, 320, 640).cuda()
+    y = model(x)
+    print(y[0].size())
+
+
 if __name__ == '__main__':
-    test_model()
+    #test_model()
+    test_unetc()

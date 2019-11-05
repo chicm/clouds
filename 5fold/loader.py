@@ -82,7 +82,7 @@ def prepare_df(ifold=0):
 
     #print(id_mask_count.head())
 
-    kf = StratifiedKFold(5, random_state=1234, shuffle=True)
+    kf = StratifiedKFold(10, random_state=1234, shuffle=True)
     for i, (train_n, val_n) in enumerate(kf.split(id_mask_count['img_id'].values, id_mask_count['count'].values)):
         if i == ifold:
             #return train.iloc[train_n], train.iloc[val_n]
