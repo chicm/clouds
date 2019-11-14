@@ -41,8 +41,8 @@ import settings
 
 class CloudDataset(Dataset):
     def __init__(self, df: pd.DataFrame = None, datatype: str = 'train', img_ids: np.array = None,
-                 transforms = albu.Compose([albu.HorizontalFlip(),AT.ToTensor()]),
-                preprocessing=None):
+                transforms = albu.Compose([albu.HorizontalFlip(),AT.ToTensor()]),
+                preprocessing=None, pseudo_imgs=set()):
         self.df = df
         if datatype != 'test':
             self.data_folder = f"{settings.DATA_DIR}/train"
@@ -51,11 +51,18 @@ class CloudDataset(Dataset):
         self.img_ids = img_ids
         self.transforms = transforms
         self.preprocessing = preprocessing
+        self.pseudo_imgs = pseudo_imgs
 
     def __getitem__(self, idx):
         image_name = self.img_ids[idx]
-        mask = make_mask(self.df, image_name)
-        image_path = os.path.join(self.data_folder, image_name)
+
+        if image_name in self.pseudo_imgs:
+            image_path = f"{settings.DATA_DIR}/test/{image_name}"
+            mask = make_mask(self.df, image_name, (350, 525))
+        else:
+            image_path = os.path.join(self.data_folder, image_name)
+            mask = make_mask(self.df, image_name)
+        #print(image_path)
         img = cv2.imread(image_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         augmented = self.transforms(image=img, mask=mask)
@@ -70,8 +77,8 @@ class CloudDataset(Dataset):
     def __len__(self):
         return len(self.img_ids)
 
-def prepare_df():
-    train = pd.read_csv(f'{settings.DATA_DIR}/train.csv')
+def prepare_df(train_file=f'{settings.DATA_DIR}/train.csv', pseudo_label=False):
+    train = pd.read_csv(train_file)
     train['label'] = train['Image_Label'].apply(lambda x: x.split('_')[1])
     train['im_id'] = train['Image_Label'].apply(lambda x: x.split('_')[0])
 
@@ -80,18 +87,36 @@ def prepare_df():
     #train_ids, valid_ids = train_test_split(id_mask_count['img_id'].values, random_state=42, stratify=id_mask_count['count'], test_size=0.1)
     #test_ids = sub['Image_Label'].apply(lambda x: x.split('_')[0]).drop_duplicates().values
     #sub = pd.read_csv(f'{path}/sample_submission.csv')
-    train_ids = pd.read_csv(os.path.join(settings.DATA_DIR, 'train_ids.csv'))['ids'].values.tolist()
-    valid_ids = pd.read_csv(os.path.join(settings.DATA_DIR, 'val_ids.csv'))['ids'].values.tolist()
-    return train, train_ids, valid_ids
+    if pseudo_label:
+        return train
+    else:
+        train_ids = pd.read_csv(os.path.join(settings.DATA_DIR, 'train_ids.csv'))['ids'].values.tolist()
+        valid_ids = pd.read_csv(os.path.join(settings.DATA_DIR, 'val_ids.csv'))['ids'].values.tolist()
+        return train, train_ids, valid_ids
 
 
-def get_train_val_loaders(encoder_type, batch_size=16):
+def get_train_val_loaders(encoder_type, batch_size=16, pseudo_label=False):
     if encoder_type.startswith('myunet'):
         encoder_type = 'resnet50'
     preprocessing_fn = smp.encoders.get_preprocessing_fn(encoder_type, 'imagenet')
     train, train_ids, valid_ids = prepare_df()
+    train['pseudo'] = 0
+    pseudo_imgs = set()
+    if pseudo_label:
+        train_pseudo = prepare_df(train_file=f'{settings.DATA_DIR}/sub_blend_1111_1.csv', pseudo_label=True)
+        train_pseudo['pseudo'] = 1
+        pseudo_ids = train_pseudo.im_id.unique().tolist()
+        print(pseudo_ids[:10])
+        pseudo_imgs = set(pseudo_ids)
+        train_ids.extend(pseudo_ids)
+        train = pd.concat([train, train_pseudo])
+        print(train.head())
+        print(train_pseudo.head())
+        print(train.shape)
+        print(len(train_ids))
+
     num_workers = 24
-    train_dataset = CloudDataset(df=train, datatype='train', img_ids=train_ids, transforms = get_training_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
+    train_dataset = CloudDataset(df=train, datatype='train', img_ids=train_ids, transforms = get_training_augmentation(), preprocessing=get_preprocessing(preprocessing_fn), pseudo_imgs=pseudo_imgs)
     valid_dataset = CloudDataset(df=train, datatype='valid', img_ids=valid_ids, transforms = get_validation_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
@@ -138,7 +163,7 @@ def test_ds():
         break
 
 def test_train_loader():
-    train_loader = get_train_val_loaders('densenet201')['train']
+    train_loader = get_train_val_loaders('densenet201', pseudo_label=True)['train']
 
     for x in train_loader:
         print(x)
@@ -154,7 +179,7 @@ def test_test_loader():
 
 if __name__ == '__main__':
     #test_ds()
-    #test_train_loader()
+    test_train_loader()
     #test_prepare_df()
-    test_test_loader()
+    #test_test_loader()
 

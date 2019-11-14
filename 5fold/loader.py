@@ -38,6 +38,7 @@ from catalyst.dl.callbacks import DiceCallback, EarlyStoppingCallback, InferCall
 import segmentation_models_pytorch as smp
 from utils import get_training_augmentation, get_validation_augmentation, get_preprocessing, make_mask
 from sklearn.model_selection import StratifiedKFold
+from sklearn.utils import shuffle
 import settings
 
 class CloudDataset(Dataset):
@@ -81,8 +82,10 @@ def prepare_df(ifold=0):
     id_mask_count = id_mask_count.sort_values(by='img_id')
 
     #print(id_mask_count.head())
+    if ifold == -1:
+        return train, [], shuffle(id_mask_count['img_id'].values)
 
-    kf = StratifiedKFold(10, random_state=1234, shuffle=True)
+    kf = StratifiedKFold(5, random_state=1234, shuffle=True)
     for i, (train_n, val_n) in enumerate(kf.split(id_mask_count['img_id'].values, id_mask_count['count'].values)):
         if i == ifold:
             #return train.iloc[train_n], train.iloc[val_n]
@@ -98,12 +101,16 @@ def get_train_val_loaders(encoder_type, batch_size=16, ifold=0):
         encoder_type = 'resnet50'
     preprocessing_fn = smp.encoders.get_preprocessing_fn(encoder_type, 'imagenet')
     train, train_ids, valid_ids = prepare_df(ifold=ifold)
-    print('val:', valid_ids[:10])
+    print('val:', len(valid_ids), valid_ids[:10])
     num_workers = 24
-    train_dataset = CloudDataset(df=train, datatype='train', img_ids=train_ids, transforms = get_training_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
-    valid_dataset = CloudDataset(df=train, datatype='valid', img_ids=valid_ids, transforms = get_validation_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    train_loader = None
+
+    if train_ids:
+        train_dataset = CloudDataset(df=train, datatype='train', img_ids=train_ids, transforms = get_training_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
+    valid_dataset = CloudDataset(df=train, datatype='valid', img_ids=valid_ids, transforms = get_validation_augmentation(), preprocessing=get_preprocessing(preprocessing_fn))
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     loaders = {

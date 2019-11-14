@@ -44,6 +44,7 @@ class MixedLoss(nn.Module):
 
 #c = MixedLoss()
 c = BCEDiceLoss()
+#c = nn.BCEWithLogitsLoss(reduction='mean')
 
 def criterion(y_pred, y_true):
     return c(y_pred, y_true)
@@ -53,7 +54,7 @@ def train(args):
     model, model_file = create_model(args.encoder_type, work_dir=args.work_dir, ckp=args.ckp)
     model = model.cuda()
 
-    loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size)
+    loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size, pseudo_label=args.pseudo)
 
     #optimizer = RAdam([
     #    {'params': model.decoder.parameters(), 'lr': args.lr}, 
@@ -200,18 +201,18 @@ if __name__ == '__main__':
     parser.add_argument('--min_lr', default=1e-5, type=float, help='min learning rate')
     parser.add_argument('--batch_size', default=32, type=int, help='batch_size')
     parser.add_argument('--val_batch_size', default=256, type=int, help='batch_size')
-    parser.add_argument('--iter_val', default=400, type=int, help='start epoch')
+    parser.add_argument('--iter_val', default=100, type=int, help='start epoch')
     parser.add_argument('--num_epochs', default=60, type=int, help='epoch')
     parser.add_argument('--optim_name', default='RAdam', choices=['SGD', 'RAdam', 'Adam'], help='optimizer')
     parser.add_argument('--lrs', default='plateau', choices=['cosine', 'plateau'], help='LR sceduler')
     parser.add_argument('--patience', default=3, type=int, help='lr scheduler patience')
     parser.add_argument('--factor', default=0.5, type=float, help='lr scheduler factor')
-    parser.add_argument('--t_max', default=6, type=int, help='lr scheduler patience')
+    parser.add_argument('--t_max', default=8, type=int, help='lr scheduler patience')
     parser.add_argument('--val', action='store_true')
     parser.add_argument('--dev_mode', action='store_true')
     parser.add_argument('--predict', action='store_true')
     parser.add_argument('--no_first_val', action='store_true')
-    parser.add_argument('--ifold', default=0, type=int, help='lr scheduler patience')
+    parser.add_argument('--pseudo', action='store_true')
     
     args = parser.parse_args()
     print(args)

@@ -75,7 +75,7 @@ def make_mask(df: pd.DataFrame, image_name: str='img.jpg', shape: tuple = (1400,
 
     for idx, label in enumerate(encoded_masks.values):
         if label is not np.nan:
-            mask = rle_decode(label)
+            mask = rle_decode(label, shape)
             masks[:, :, idx] = mask
             
     return masks
@@ -214,11 +214,11 @@ def get_training_augmentation():
 def get_training_augmentation():
     train_transform = [
         albu.Resize(320, 640),
-        albu.HorizontalFlip(p=0.25),
-        albu.VerticalFlip(p=0.25),
-        albu.ShiftScaleRotate(scale_limit=0.5, rotate_limit=15, shift_limit=0.1, p=0.5, border_mode=cv2.BORDER_REFLECT)
-#         albu.GridDistortion(p=0.5),
-#         albu.OpticalDistortion(p=0.5, distort_limit=2, shift_limit=0.5),
+        albu.HorizontalFlip(p=0.5),
+        albu.VerticalFlip(p=0.5),
+        albu.ShiftScaleRotate(scale_limit=0.5, rotate_limit=20, shift_limit=0.1, p=0.5, border_mode=cv2.BORDER_REFLECT),
+        #albu.GridDistortion(p=0.5),
+        albu.OpticalDistortion(p=0.5, distort_limit=2, shift_limit=0.5),
 
     ]
     return albu.Compose(train_transform)

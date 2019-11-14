@@ -148,7 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('--ckps', type=str, required=True)
     parser.add_argument('--out', type=str, default='ensemble.csv')
     parser.add_argument('--batch_size', default=16, type=int, help='batch_size')
-    parser.add_argument('--ifold', default=0, type=int, help='lr scheduler patience')
+    parser.add_argument('--ifold', default=-1, type=int, help='lr scheduler patience')
     
     args = parser.parse_args()
     print(args)

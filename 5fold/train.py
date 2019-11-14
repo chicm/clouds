@@ -14,7 +14,7 @@ import segmentation_models_pytorch as smp
 from models import create_model
 from unet_model import create_unet_model
 from loader import get_train_val_loaders
-from radam import RAdam
+from radam import RAdam, Lookahead
 import settings
 
 train_on_gpu = True
@@ -24,17 +24,19 @@ def train(args):
     ckp = None
     if os.path.exists(args.log_dir + '/checkpoints/best.pth'):
         ckp = args.log_dir + '/checkpoints/best.pth'
-    model = create_model(args.encoder_type, ckp=ckp)
+    model = create_model(args.encoder_type, ckp=ckp).cuda()
     loaders = get_train_val_loaders(args.encoder_type, batch_size=args.batch_size, ifold=args.ifold)
 
     # model, criterion, optimizer
     if args.encoder_type.startswith('myunet'):
         optimizer = RAdam(model.parameters(), lr=args.lr)
     else:
-        optimizer = RAdam([
+        base_optim = RAdam([
             {'params': model.decoder.parameters(), 'lr': args.lr}, 
             {'params': model.encoder.parameters(), 'lr': args.lr / 10.},  
         ])
+        #base_optim = RAdam(model.parameters(),lr = 0.001) 
+        optimizer =  Lookahead(base_optim, k=5, alpha=0.5)
     #scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=2)
 
     if args.lrs == 'plateau':
